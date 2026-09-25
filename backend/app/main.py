@@ -47,7 +47,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount Routers
+# Mount Routers (with /api prefix)
 app.include_router(telemetry.router, prefix=settings.API_V1_STR)
 app.include_router(synthetic.router, prefix=settings.API_V1_STR)
 app.include_router(anomaly.router, prefix=settings.API_V1_STR)
@@ -55,6 +55,15 @@ app.include_router(imputation.router, prefix=settings.API_V1_STR)
 app.include_router(alerts.router, prefix=settings.API_V1_STR)
 app.include_router(dashboard.router, prefix=settings.API_V1_STR)
 app.include_router(analysis.router, prefix=settings.API_V1_STR)
+
+# Also mount without /api prefix (for Vercel serverless function rewrites that strip /api)
+app.include_router(telemetry.router)
+app.include_router(synthetic.router)
+app.include_router(anomaly.router)
+app.include_router(imputation.router)
+app.include_router(alerts.router)
+app.include_router(dashboard.router)
+app.include_router(analysis.router)
 
 @app.on_event("startup")
 def auto_populate_synthetic_data_if_empty():
