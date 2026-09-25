@@ -1,0 +1,193 @@
+{
+  "trained": true,
+  "model_version": "3.0.0",
+  "random_seed": 42,
+  "architecture": "TelemetryPINNv3 (43 target-aware inputs x 4 hidden layers x 128 neurons, Tanh activations, Linear output)",
+  "input_variables": [
+    "t_norm",
+    "phase_code",
+    "target_id_onehot (5)",
+    "telemetry_context (18)",
+    "mask_indicators (18)"
+  ],
+  "output_variables": [
+    "P_chamber",
+    "T_chamber",
+    "m_ox",
+    "m_fuel",
+    "F_thrust"
+  ],
+  "parameters_count": 55297,
+  "optimizer": "Adam",
+  "learning_rate": 0.003,
+  "epochs": 500,
+  "best_epoch": 7,
+  "batch_size": 128,
+  "dataset_split": {
+    "train_samples": 1260,
+    "val_samples": 270,
+    "test_samples": 271,
+    "synthetic_samples": 1801,
+    "experimental_samples": 333,
+    "split_method": "Time-aware block split (no data leakage)"
+  },
+  "experimental_integration": {
+    "samples_used": 333,
+    "measured_targets_supervised": [
+      "P_chamber",
+      "m_ox",
+      "m_fuel"
+    ],
+    "losses_computed": [
+      "exp_measured_data",
+      "exp_mass_flow",
+      "exp_OF_ratio"
+    ],
+    "target_fabrication": "NONE (T_chamber and F_thrust were NOT fabricated)"
+  },
+  "training_history": {
+    "initial_total_loss": 2.467238,
+    "final_data_loss": 0.003365,
+    "final_exp_data_loss": 2.596739,
+    "final_exp_physics_loss": 0.435152,
+    "final_total_loss": 0.232312,
+    "best_validation_loss": 0.53358
+  },
+  "test_performance": {
+    "P_chamber": {
+      "MAE": 1.3061,
+      "RMSE": 1.3421
+    },
+    "T_chamber": {
+      "MAE": 674.2066,
+      "RMSE": 698.6568
+    },
+    "m_ox": {
+      "MAE": 93.2906,
+      "RMSE": 96.6487
+    },
+    "m_fuel": {
+      "MAE": 33.6806,
+      "RMSE": 34.965
+    },
+    "F_thrust": {
+      "MAE": 187.7274,
+      "RMSE": 193.8486
+    }
+  },
+  "reconstruction_comparison": {
+    "Interpolation": {
+      "MAE": 0.0189,
+      "RMSE": 0.2304
+    },
+    "Physics": {
+      "MAE": 36.8158,
+      "RMSE": 76.9083
+    },
+    "EKF": {
+      "MAE": 18.3984,
+      "RMSE": 38.4339
+    },
+    "PINN": {
+      "MAE": 185.5605,
+      "RMSE": 310.6337
+    }
+  },
+  "missing_rate_benchmark": {
+    "5%_missing": {
+      "Interpolation": {
+        "MAE": 0.0,
+        "RMSE": 0.0
+      },
+      "Physics": {
+        "MAE": 21.1351,
+        "RMSE": 58.4872
+      },
+      "EKF": {
+        "MAE": 10.5675,
+        "RMSE": 29.2436
+      },
+      "PINN": {
+        "MAE": 224.0626,
+        "RMSE": 367.4877
+      }
+    },
+    "10%_missing": {
+      "Interpolation": {
+        "MAE": 0.2705,
+        "RMSE": 1.6971
+      },
+      "Physics": {
+        "MAE": 32.018,
+        "RMSE": 70.207
+      },
+      "EKF": {
+        "MAE": 16.1443,
+        "RMSE": 35.1696
+      },
+      "PINN": {
+        "MAE": 158.6657,
+        "RMSE": 274.1167
+      }
+    },
+    "20%_missing": {
+      "Interpolation": {
+        "MAE": 0.0891,
+        "RMSE": 1.2719
+      },
+      "Physics": {
+        "MAE": 25.2172,
+        "RMSE": 62.6652
+      },
+      "EKF": {
+        "MAE": 12.643,
+        "RMSE": 31.3383
+      },
+      "PINN": {
+        "MAE": 202.6333,
+        "RMSE": 336.1578
+      }
+    },
+    "30%_missing": {
+      "Interpolation": {
+        "MAE": 0.0354,
+        "RMSE": 0.319
+      },
+      "Physics": {
+        "MAE": 34.3604,
+        "RMSE": 73.9068
+      },
+      "EKF": {
+        "MAE": 17.1712,
+        "RMSE": 36.9237
+      },
+      "PINN": {
+        "MAE": 157.5288,
+        "RMSE": 272.4119
+      }
+    }
+  },
+  "gap_length_benchmark": {
+    "Short (1-3)": {
+      "MAE": 220.3607,
+      "RMSE": 220.3712
+    },
+    "Medium (4-10)": {
+      "MAE": 221.6163,
+      "RMSE": 221.6349
+    },
+    "Long (11+)": {
+      "MAE": 228.8138,
+      "RMSE": 228.8995
+    }
+  },
+  "physics_validation": {
+    "mean_residual": 36.769,
+    "median_residual": 40.2332,
+    "rmse_residual": 38.5423,
+    "max_residual": 48.0291,
+    "percentage_within_tolerance": 4.8,
+    "tolerance_threshold_kN": 10.0
+  },
+  "checkpoint_path": "D:\\SIH PS2\\backend\\pinn_checkpoints\\aeris_pinn_v3.pt"
+}
