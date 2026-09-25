@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { TelemetryDataPoint, AnomalyItem, ImputationItem, AlertItem, SystemHealthInfo } from '../types/telemetry';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 export const api = {
   // Telemetry
