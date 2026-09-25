@@ -113,6 +113,7 @@ def auto_populate_synthetic_data_if_empty():
         db.close()
 
 @app.get("/")
+@app.get("/api")
 def root_endpoint():
     return {
         "project": "AERIS — Physics-Constrained Telemetry Framework",
