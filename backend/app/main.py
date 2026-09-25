@@ -18,18 +18,15 @@ from app.services.alert_manager import alert_manager
 from sqlalchemy import inspect, text
 
 # Create DB tables & ensure schema migration for anomaly_records
-try:
-    Base.metadata.create_all(bind=engine)
-    with engine.connect() as conn:
-        if inspect(engine).has_table('anomaly_records'):
-            existing_cols = [col['name'] for col in inspect(engine).get_columns('anomaly_records')]
-            if 'duration' not in existing_cols:
-                conn.execute(text("ALTER TABLE anomaly_records ADD COLUMN duration FLOAT DEFAULT 0.0"))
-            if 'end_time' not in existing_cols:
-                conn.execute(text("ALTER TABLE anomaly_records ADD COLUMN end_time FLOAT"))
-            conn.commit()
-except Exception as e:
-    print(f"DB init notice: {e}")
+Base.metadata.create_all(bind=engine)
+with engine.connect() as conn:
+    if inspect(engine).has_table('anomaly_records'):
+        existing_cols = [col['name'] for col in inspect(engine).get_columns('anomaly_records')]
+        if 'duration' not in existing_cols:
+            conn.execute(text("ALTER TABLE anomaly_records ADD COLUMN duration FLOAT DEFAULT 0.0"))
+        if 'end_time' not in existing_cols:
+            conn.execute(text("ALTER TABLE anomaly_records ADD COLUMN end_time FLOAT"))
+        conn.commit()
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -64,7 +61,7 @@ def auto_populate_synthetic_data_if_empty():
         count = db.query(TelemetryRecord).count()
         if count == 0:
             print("Database empty. Auto-generating synthetic launch telemetry dataset...")
-            df = generate_synthetic_telemetry(duration=120.0, dt=0.2, inject_anomalies=True)
+            df = generate_synthetic_telemetry(duration=600.0, dt=0.1, inject_anomalies=True)
             records = []
             for _, row in df.iterrows():
                 rec_dict = row.to_dict()
@@ -113,7 +110,6 @@ def auto_populate_synthetic_data_if_empty():
         db.close()
 
 @app.get("/")
-@app.get("/api")
 def root_endpoint():
     return {
         "project": "AERIS — Physics-Constrained Telemetry Framework",

@@ -3,13 +3,17 @@ try:
     import torch.nn as nn
     from torch.utils.data import TensorDataset, DataLoader
     HAS_TORCH = True
-    ModuleBase = nn.Module
 except ImportError:
     torch = None
-    nn = None
-    TensorDataset = DataLoader = None
+    class _DummyNNModule:
+        pass
+    class _DummyNN:
+        Module = _DummyNNModule
+    nn = _DummyNN()
+    TensorDataset = None
+    DataLoader = None
     HAS_TORCH = False
-    ModuleBase = object
+
 import numpy as np
 import pandas as pd
 import os
@@ -77,41 +81,39 @@ def set_seed(seed: int = 42):
         torch.cuda.manual_seed_all(seed)
 
 
-class TelemetryPINN(ModuleBase):
+class TelemetryPINN(nn.Module):
     """Legacy PINN architecture (4 inputs x 5 outputs). Preserved for backward compatibility."""
     def __init__(self, input_dim: int = 4, output_dim: int = 5):
         super(TelemetryPINN, self).__init__()
-        if nn is not None:
-            self.net = nn.Sequential(
-                nn.Linear(input_dim, 128), nn.Tanh(),
-                nn.Linear(128, 128), nn.Tanh(),
-                nn.Linear(128, 128), nn.Tanh(),
-                nn.Linear(128, 128), nn.Tanh(),
-                nn.Linear(128, output_dim)
-            )
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, 128), nn.Tanh(),
+            nn.Linear(128, 128), nn.Tanh(),
+            nn.Linear(128, 128), nn.Tanh(),
+            nn.Linear(128, 128), nn.Tanh(),
+            nn.Linear(128, output_dim)
+        )
 
     def forward(self, x):
         return self.net(x)
 
 
-class TelemetryPINNv2(ModuleBase):
+class TelemetryPINNv2(nn.Module):
     """PINN v2 architecture. Preserved for backward backup."""
     def __init__(self, input_dim: int = 12, output_dim: int = 5):
         super(TelemetryPINNv2, self).__init__()
-        if nn is not None:
-            self.net = nn.Sequential(
-                nn.Linear(input_dim, 128), nn.Tanh(),
-                nn.Linear(128, 128), nn.Tanh(),
-                nn.Linear(128, 128), nn.Tanh(),
-                nn.Linear(128, 128), nn.Tanh(),
-                nn.Linear(128, output_dim), nn.Sigmoid()
-            )
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, 128), nn.Tanh(),
+            nn.Linear(128, 128), nn.Tanh(),
+            nn.Linear(128, 128), nn.Tanh(),
+            nn.Linear(128, 128), nn.Tanh(),
+            nn.Linear(128, output_dim), nn.Sigmoid()
+        )
 
     def forward(self, x):
         return self.net(x)
 
 
-class TelemetryPINNv3(ModuleBase):
+class TelemetryPINNv3(nn.Module):
     """
     Target-Aware Conditional Physics-Informed Neural Network (PINN v3).
     Architecture: 4 hidden layers x 128 neurons with Tanh activation and Linear output.
@@ -128,18 +130,17 @@ class TelemetryPINNv3(ModuleBase):
     """
     def __init__(self, input_dim: int = 43, output_dim: int = 1):
         super(TelemetryPINNv3, self).__init__()
-        if nn is not None:
-            self.net = nn.Sequential(
-                nn.Linear(input_dim, 128),
-                nn.Tanh(),
-                nn.Linear(128, 128),
-                nn.Tanh(),
-                nn.Linear(128, 128),
-                nn.Tanh(),
-                nn.Linear(128, 128),
-                nn.Tanh(),
-                nn.Linear(128, output_dim)
-            )
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, 128),
+            nn.Tanh(),
+            nn.Linear(128, 128),
+            nn.Tanh(),
+            nn.Linear(128, 128),
+            nn.Tanh(),
+            nn.Linear(128, 128),
+            nn.Tanh(),
+            nn.Linear(128, output_dim)
+        )
 
     def forward(self, x):
         return self.net(x)
@@ -849,7 +850,7 @@ def train_pinn(epochs: int = 500, lr: float = 3e-3, **kwargs):
 class PINNPredictor:
     """High-level wrapper for PINN v3 model inference."""
     def __init__(self):
-        self.model = TelemetryPINNv3(input_dim=43, output_dim=1)
+        self.model = TelemetryPINNv3(input_dim=43, output_dim=1) if HAS_TORCH else None
         self.is_trained = False
         self.metadata = {}
         self.means_dict = NOMINAL_VALUES.copy()
@@ -857,10 +858,15 @@ class PINNPredictor:
         self.min_t = 0.0
         self.max_t = 600.0
         self._load_checkpoint()
-        self.model.eval()
+        if HAS_TORCH and self.model:
+            self.model.eval()
 
     def _load_checkpoint(self):
         """Attempts to load trained checkpoint (prefers aeris_pinn_v3.pt)."""
+        if not HAS_TORCH:
+            print("  [INFO] PyTorch not installed in runtime. Operating in analytical physics mode.")
+            self.is_trained = False
+            return
         ckpt_path = (
             CHECKPOINT_V3_PATH if os.path.exists(CHECKPOINT_V3_PATH)
             else (CHECKPOINT_V2_PATH if os.path.exists(CHECKPOINT_V2_PATH) else CHECKPOINT_LEGACY_PATH)

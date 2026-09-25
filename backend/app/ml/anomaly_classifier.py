@@ -4,6 +4,13 @@ from typing import Dict, List, Any, Optional
 try:
     import torch
     import torch.nn as nn
+    HAS_TORCH = True
+except ImportError:
+    torch = None
+    nn = None
+    HAS_TORCH = False
+
+if HAS_TORCH:
     class LSTMAutoencoder(nn.Module):
         """LSTM Autoencoder for sequence-based anomaly detection."""
         def __init__(self, input_dim: int = 1, hidden_dim: int = 32):
@@ -15,13 +22,9 @@ try:
             encoded, (hn, cn) = self.encoder(x)
             decoded, _ = self.decoder(encoded)
             return decoded
-except ImportError:
-    torch = None
-    nn = None
-    LSTMAutoencoder = None
-from sklearn.ensemble import IsolationForest
-
-
+else:
+    class LSTMAutoencoder:
+        pass
 
 class MLAnomalyDetector:
     def __init__(self, contamination: float = 0.01):
