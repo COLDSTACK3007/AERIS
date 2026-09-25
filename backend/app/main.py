@@ -64,7 +64,7 @@ def auto_populate_synthetic_data_if_empty():
         count = db.query(TelemetryRecord).count()
         if count == 0:
             print("Database empty. Auto-generating synthetic launch telemetry dataset...")
-            df = generate_synthetic_telemetry(duration=600.0, dt=0.1, inject_anomalies=True)
+            df = generate_synthetic_telemetry(duration=120.0, dt=0.2, inject_anomalies=True)
             records = []
             for _, row in df.iterrows():
                 rec_dict = row.to_dict()
