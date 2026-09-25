@@ -3,10 +3,17 @@ from typing import List
 import os
 
 def _default_db_url() -> str:
-    """Use /tmp on Vercel (read-only filesystem), local path otherwise."""
-    if os.environ.get("VERCEL"):
+    """Use /tmp on Vercel or read-only filesystem environments, local path otherwise."""
+    if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME") or os.environ.get("NOW_REGION"):
         return "sqlite:////tmp/aeris.db"
-    return "sqlite:///./aeris.db"
+    try:
+        test_file = "./.write_test"
+        with open(test_file, "w") as f:
+            f.write("test")
+        os.remove(test_file)
+        return "sqlite:///./aeris.db"
+    except Exception:
+        return "sqlite:////tmp/aeris.db"
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "AERIS — Launch Vehicle Telemetry Framework"
