@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Any, Optional
+from sklearn.ensemble import IsolationForest
 try:
     import torch
     import torch.nn as nn
