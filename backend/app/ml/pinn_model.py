@@ -147,11 +147,11 @@ class TelemetryPINNv3(nn.Module):
 
 
 def compute_physics_residuals(
-    t: torch.Tensor, 
-    preds: torch.Tensor, 
+    t: Any, 
+    preds: Any, 
     isp: float = ISP, 
     g0: float = G0
-) -> torch.Tensor:
+) -> Any:
     """Computes thrust and chamber pressure physics residual losses for training."""
     P_chamber = preds[:, 0]
     T_chamber = preds[:, 1]
