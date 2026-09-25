@@ -1,6 +1,11 @@
 {
   "outputDirectory": "frontend/dist",
   "cleanUrls": true,
+  "functions": {
+    "api/*.py": {
+      "includeFiles": "backend/**"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
