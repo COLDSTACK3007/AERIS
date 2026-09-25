@@ -1,7 +1,12 @@
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Any, Optional
-from sklearn.ensemble import IsolationForest
+try:
+    from sklearn.ensemble import IsolationForest
+    HAS_SKLEARN = True
+except ImportError:
+    IsolationForest = None
+    HAS_SKLEARN = False
 try:
     import torch
     import torch.nn as nn
@@ -33,7 +38,7 @@ class MLAnomalyDetector:
 
     def detect_isolation_forest_anomalies(self, df: pd.DataFrame, parameter: str) -> np.ndarray:
         """Detects point anomalies using Isolation Forest on a single parameter."""
-        if parameter not in df.columns:
+        if not HAS_SKLEARN or IsolationForest is None or parameter not in df.columns:
             return np.zeros(len(df), dtype=bool)
 
         valid_idx = df[parameter].dropna().index
@@ -54,6 +59,8 @@ class MLAnomalyDetector:
         self, df: pd.DataFrame, parameters: List[str]
     ) -> List[Dict[str, Any]]:
         """Detects multi-variate vector anomalies across selected parameters using IsolationForest."""
+        if not HAS_SKLEARN or IsolationForest is None:
+            return []
         available_params = [p for p in parameters if p in df.columns]
         if len(available_params) < 2 or len(df) < 30:
             return []

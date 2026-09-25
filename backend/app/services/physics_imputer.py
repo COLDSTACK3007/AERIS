@@ -1,6 +1,11 @@
 import numpy as np
 import pandas as pd
-from scipy.interpolate import CubicSpline
+try:
+    from scipy.interpolate import CubicSpline
+    HAS_SCIPY = True
+except ImportError:
+    CubicSpline = None
+    HAS_SCIPY = False
 from typing import Dict, List, Tuple, Any
 from app.services.synthetic_data import PARAM_METADATA, ISP, G0, K_CHAMBER, RESIDUAL_TOLERANCES
 from app.ml.pinn_model import pinn_predictor
@@ -150,7 +155,7 @@ class PhysicsImputerService:
         
         target_t = df.loc[group, "timestamp"].values
         
-        if len(x_valid) >= 4:
+        if HAS_SCIPY and len(x_valid) >= 4:
             cs = CubicSpline(x_valid, y_valid)
             imputed = cs(target_t)
         else:

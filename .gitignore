@@ -8,5 +8,6 @@ __pycache__/
 .vercel/
 frontend/.vercel/
 *.log
+*.db
 
 .vercel
