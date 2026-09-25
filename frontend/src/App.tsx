@@ -72,7 +72,10 @@ export function App() {
     // WebSocket real-time stream listener connection
     let ws: WebSocket | null = null;
     try {
-      const wsUrl = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8000/api/telemetry/stream';
+      const defaultWsUrl = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+        ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/telemetry/stream`
+        : 'ws://localhost:8000/api/telemetry/stream';
+      const wsUrl = import.meta.env.VITE_WS_BASE_URL || defaultWsUrl;
       ws = new WebSocket(wsUrl);
       ws.onmessage = (event) => {
         try {

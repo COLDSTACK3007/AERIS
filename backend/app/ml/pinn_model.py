@@ -1,6 +1,15 @@
-import torch
-import torch.nn as nn
-from torch.utils.data import TensorDataset, DataLoader
+try:
+    import torch
+    import torch.nn as nn
+    from torch.utils.data import TensorDataset, DataLoader
+    HAS_TORCH = True
+    ModuleBase = nn.Module
+except ImportError:
+    torch = None
+    nn = None
+    TensorDataset = DataLoader = None
+    HAS_TORCH = False
+    ModuleBase = object
 import numpy as np
 import pandas as pd
 import os
@@ -68,39 +77,41 @@ def set_seed(seed: int = 42):
         torch.cuda.manual_seed_all(seed)
 
 
-class TelemetryPINN(nn.Module):
+class TelemetryPINN(ModuleBase):
     """Legacy PINN architecture (4 inputs x 5 outputs). Preserved for backward compatibility."""
     def __init__(self, input_dim: int = 4, output_dim: int = 5):
         super(TelemetryPINN, self).__init__()
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, 128), nn.Tanh(),
-            nn.Linear(128, 128), nn.Tanh(),
-            nn.Linear(128, 128), nn.Tanh(),
-            nn.Linear(128, 128), nn.Tanh(),
-            nn.Linear(128, output_dim)
-        )
+        if nn is not None:
+            self.net = nn.Sequential(
+                nn.Linear(input_dim, 128), nn.Tanh(),
+                nn.Linear(128, 128), nn.Tanh(),
+                nn.Linear(128, 128), nn.Tanh(),
+                nn.Linear(128, 128), nn.Tanh(),
+                nn.Linear(128, output_dim)
+            )
 
     def forward(self, x):
         return self.net(x)
 
 
-class TelemetryPINNv2(nn.Module):
+class TelemetryPINNv2(ModuleBase):
     """PINN v2 architecture. Preserved for backward backup."""
     def __init__(self, input_dim: int = 12, output_dim: int = 5):
         super(TelemetryPINNv2, self).__init__()
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, 128), nn.Tanh(),
-            nn.Linear(128, 128), nn.Tanh(),
-            nn.Linear(128, 128), nn.Tanh(),
-            nn.Linear(128, 128), nn.Tanh(),
-            nn.Linear(128, output_dim), nn.Sigmoid()
-        )
+        if nn is not None:
+            self.net = nn.Sequential(
+                nn.Linear(input_dim, 128), nn.Tanh(),
+                nn.Linear(128, 128), nn.Tanh(),
+                nn.Linear(128, 128), nn.Tanh(),
+                nn.Linear(128, 128), nn.Tanh(),
+                nn.Linear(128, output_dim), nn.Sigmoid()
+            )
 
     def forward(self, x):
         return self.net(x)
 
 
-class TelemetryPINNv3(nn.Module):
+class TelemetryPINNv3(ModuleBase):
     """
     Target-Aware Conditional Physics-Informed Neural Network (PINN v3).
     Architecture: 4 hidden layers x 128 neurons with Tanh activation and Linear output.
@@ -117,17 +128,18 @@ class TelemetryPINNv3(nn.Module):
     """
     def __init__(self, input_dim: int = 43, output_dim: int = 1):
         super(TelemetryPINNv3, self).__init__()
-        self.net = nn.Sequential(
-            nn.Linear(input_dim, 128),
-            nn.Tanh(),
-            nn.Linear(128, 128),
-            nn.Tanh(),
-            nn.Linear(128, 128),
-            nn.Tanh(),
-            nn.Linear(128, 128),
-            nn.Tanh(),
-            nn.Linear(128, output_dim)
-        )
+        if nn is not None:
+            self.net = nn.Sequential(
+                nn.Linear(input_dim, 128),
+                nn.Tanh(),
+                nn.Linear(128, 128),
+                nn.Tanh(),
+                nn.Linear(128, 128),
+                nn.Tanh(),
+                nn.Linear(128, 128),
+                nn.Tanh(),
+                nn.Linear(128, output_dim)
+            )
 
     def forward(self, x):
         return self.net(x)

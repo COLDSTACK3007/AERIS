@@ -1,21 +1,27 @@
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Any, Optional
-import torch
-import torch.nn as nn
+try:
+    import torch
+    import torch.nn as nn
+    class LSTMAutoencoder(nn.Module):
+        """LSTM Autoencoder for sequence-based anomaly detection."""
+        def __init__(self, input_dim: int = 1, hidden_dim: int = 32):
+            super(LSTMAutoencoder, self).__init__()
+            self.encoder = nn.LSTM(input_dim, hidden_dim, batch_first=True)
+            self.decoder = nn.LSTM(hidden_dim, input_dim, batch_first=True)
+
+        def forward(self, x):
+            encoded, (hn, cn) = self.encoder(x)
+            decoded, _ = self.decoder(encoded)
+            return decoded
+except ImportError:
+    torch = None
+    nn = None
+    LSTMAutoencoder = None
 from sklearn.ensemble import IsolationForest
 
-class LSTMAutoencoder(nn.Module):
-    """LSTM Autoencoder for sequence-based anomaly detection."""
-    def __init__(self, input_dim: int = 1, hidden_dim: int = 32):
-        super(LSTMAutoencoder, self).__init__()
-        self.encoder = nn.LSTM(input_dim, hidden_dim, batch_first=True)
-        self.decoder = nn.LSTM(hidden_dim, input_dim, batch_first=True)
 
-    def forward(self, x):
-        encoded, (hn, cn) = self.encoder(x)
-        decoded, _ = self.decoder(encoded)
-        return decoded
 
 class MLAnomalyDetector:
     def __init__(self, contamination: float = 0.01):
