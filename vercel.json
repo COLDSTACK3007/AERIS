@@ -1,18 +1,21 @@
 {
+  "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
   "cleanUrls": true,
   "functions": {
-    "api/*.py": {
+    "api/index.py": {
+      "runtime": "python3.12",
+      "maxDuration": 60,
       "includeFiles": "backend/**"
     }
   },
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api"
+      "destination": "/api/index.py"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ]

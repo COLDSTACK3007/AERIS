@@ -82,40 +82,42 @@ def auto_populate_synthetic_data_if_empty():
                     records.append(TelemetryRecord(**clean_dict))
                 db.bulk_save_objects(records)
 
-            anomalies = anomaly_service.detect_all_anomalies(df)
-            db_anomalies = [
-                AnomalyRecord(
-                    timestamp=a["timestamp"],
-                    parameter=str(a["parameter"]),
-                    anomaly_type=str(a["anomaly_type"]),
-                    severity=str(a["severity"]),
-                    description=str(a["description"]),
-                    value_observed=a.get("value_observed"),
-                    expected_range_min=a.get("expected_range_min"),
-                    expected_range_max=a.get("expected_range_max"),
-                    confidence=a.get("confidence", 1.0) or 1.0,
-                    flight_phase=str(a.get("flight_phase", "UNKNOWN"))
-                )
-                for a in anomalies
-            ]
-            db.bulk_save_objects(db_anomalies)
+                anomalies = anomaly_service.detect_all_anomalies(df)
+                db_anomalies = [
+                    AnomalyRecord(
+                        timestamp=a["timestamp"],
+                        parameter=str(a["parameter"]),
+                        anomaly_type=str(a["anomaly_type"]),
+                        severity=str(a["severity"]),
+                        description=str(a["description"]),
+                        value_observed=a.get("value_observed"),
+                        expected_range_min=a.get("expected_range_min"),
+                        expected_range_max=a.get("expected_range_max"),
+                        confidence=a.get("confidence", 1.0) or 1.0,
+                        flight_phase=str(a.get("flight_phase", "UNKNOWN"))
+                    )
+                    for a in anomalies
+                ]
+                db.bulk_save_objects(db_anomalies)
 
-            alert_objs = alert_manager.generate_alerts_from_anomalies(anomalies)
-            db_alerts = [
-                AlertRecord(
-                    timestamp=alt["timestamp"],
-                    level=str(alt["level"]),
-                    title=str(alt["title"]),
-                    message=str(alt["message"]),
-                    parameter=str(alt.get("parameter", "UNKNOWN")),
-                    is_acknowledged=False
-                )
-                for alt in alert_objs
-            ]
-            db.bulk_save_objects(db_alerts)
+                alert_objs = alert_manager.generate_alerts_from_anomalies(anomalies)
+                db_alerts = [
+                    AlertRecord(
+                        timestamp=alt["timestamp"],
+                        level=str(alt["level"]),
+                        title=str(alt["title"]),
+                        message=str(alt["message"]),
+                        parameter=str(alt.get("parameter", "UNKNOWN")),
+                        is_acknowledged=False
+                    )
+                    for alt in alert_objs
+                ]
+                db.bulk_save_objects(db_alerts)
 
-            db.commit()
-            print(f"Successfully auto-generated {len(records)} initial telemetry records, {len(anomalies)} anomalies, and {len(alert_objs)} priority alerts.")
+                db.commit()
+                print(f"Auto-generated {len(records)} telemetry records, {len(anomalies)} anomalies, {len(alert_objs)} alerts.")
+            else:
+                print(f"Database already has {count} telemetry records, skipping auto-generation.")
         except Exception as e:
             print(f"Startup synthetic data generation warning: {e}")
             db.rollback()
