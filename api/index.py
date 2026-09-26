@@ -27,8 +27,9 @@ def ping_endpoint():
 # /api again — just use it directly as the handler.
 try:
     from app.main import app as main_app
-    # Use main_app directly — it already has /api-prefixed routes.
-    # We replace our gateway app with it entirely so route resolution works.
+    @main_app.get("/api/ping")
+    def main_ping():
+        return {"status": "ok", "message": "AERIS Vercel backend main app active!"}
     app = main_app
 except Exception as e:
     err_str = str(e)
@@ -40,7 +41,11 @@ except Exception as e:
     def debug_error():
         return {"status": "init_error", "error": err_str, "traceback": tb_str}
 
-    @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+    @app.get("/")
+    def debug_root():
+        return {"status": "init_error", "error": err_str, "traceback": tb_str}
+
+    @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
     def catch_all_error(path: str):
         return JSONResponse(
             status_code=503,
