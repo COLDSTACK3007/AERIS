@@ -1,0 +1,7 @@
+backend/
+requirements.txt
+dataset/
+pinn_checkpoints/
+api/
+aeris.db
+*.py
