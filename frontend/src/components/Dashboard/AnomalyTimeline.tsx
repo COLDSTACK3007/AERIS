@@ -18,12 +18,14 @@ export const AnomalyTimeline: React.FC<AnomalyTimelineProps> = ({
   const [filterType, setFilterType] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const filteredAnomalies = anomalies.filter((a) => {
+  const safeAnomalies = Array.isArray(anomalies) ? anomalies : [];
+
+  const filteredAnomalies = safeAnomalies.filter((a) => {
     const matchesType = filterType === 'ALL' || a.anomaly_type === filterType;
     const matchesSearch =
       searchQuery === '' ||
-      a.parameter.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.description.toLowerCase().includes(searchQuery.toLowerCase());
+      (a.parameter && a.parameter.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (a.description && a.description.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesType && matchesSearch;
   });
 
@@ -69,7 +71,7 @@ export const AnomalyTimeline: React.FC<AnomalyTimelineProps> = ({
           </div>
           <div>
             <h2 className="text-sm font-bold uppercase tracking-wider" style={{ color: 'var(--text-main)' }}>
-              Anomaly Classifier ({anomalies.length})
+              Anomaly Classifier ({safeAnomalies.length})
             </h2>
             <p className="text-[10px] font-mono" style={{ color: 'var(--text-muted)' }}>
               Multi-Strategy Failure Mode Catalog

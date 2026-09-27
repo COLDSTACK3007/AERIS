@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 try:
-    from scipy.interpolate import CubicSpline
+    from scipy.interpolate import CubicSpline  # type: ignore
     HAS_SCIPY = True
 except ImportError:
     CubicSpline = None
@@ -86,8 +86,8 @@ class PhysicsImputerService:
             if not series.isna().any():
                 continue
                 
-            timestamps = df_imputed["timestamp"].values
-            is_nan = series.isna().values
+            timestamps = df_imputed["timestamp"].to_numpy()
+            is_nan = series.isna().to_numpy()
             nan_indices = np.where(is_nan)[0]
             if len(nan_indices) == 0:
                 continue
@@ -114,7 +114,7 @@ class PhysicsImputerService:
                     imputed_vals, method, base_conf = self._impute_long_gap(df_imputed, param, group)
                     
                 # Apply imputed values to dataset
-                df_imputed.loc[group, param] = imputed_vals
+                df_imputed.loc[df_imputed.index[group], param] = imputed_vals
                 
                 # Compute physics residuals and confidence scores
                 tolerance = RESIDUAL_TOLERANCES.get(param, 1.0)
@@ -150,12 +150,12 @@ class PhysicsImputerService:
     ) -> Tuple[np.ndarray, str, float]:
         """Short gaps (≤1s): Cubic spline interpolation with boundary continuity."""
         valid_mask = ~df[param].isna()
-        x_valid = df.loc[valid_mask, "timestamp"].values
-        y_valid = df.loc[valid_mask, param].values
+        x_valid = df.loc[valid_mask, "timestamp"].to_numpy()
+        y_valid = df.loc[valid_mask, param].to_numpy()
         
-        target_t = df.loc[group, "timestamp"].values
+        target_t = df.loc[group, "timestamp"].to_numpy()
         
-        if HAS_SCIPY and len(x_valid) >= 4:
+        if HAS_SCIPY and CubicSpline is not None and len(x_valid) >= 4:
             cs = CubicSpline(x_valid, y_valid)
             imputed = cs(target_t)
         else:
@@ -168,18 +168,18 @@ class PhysicsImputerService:
     ) -> Tuple[np.ndarray, str, float]:
         """Medium gaps (1-5s): Physics-based reconstruction where equations are
         available, otherwise falls back to spline interpolation."""
-        target_t = df.loc[group, "timestamp"].values
+        target_t = df.loc[group, "timestamp"].to_numpy()
         
         # Physics-based: Thrust from flow rates
         if param == "F_thrust" and "m_ox" in df.columns and "m_fuel" in df.columns:
-            m_ox = df.loc[group, "m_ox"].fillna(240.0).values
-            m_fuel = df.loc[group, "m_fuel"].fillna(96.0).values
+            m_ox = df.loc[group, "m_ox"].fillna(240.0).to_numpy()
+            m_fuel = df.loc[group, "m_fuel"].fillna(96.0).to_numpy()
             imputed = (m_ox + m_fuel) * ISP * G0 / 1000.0
             method = "Physics (Rocket Thrust Equation)"
         # Physics-based: Chamber pressure from flow rates
         elif param == "P_chamber" and "m_ox" in df.columns:
-            m_ox = df.loc[group, "m_ox"].fillna(240.0).values
-            m_fuel = df.loc[group, "m_fuel"].fillna(96.0).values
+            m_ox = df.loc[group, "m_ox"].fillna(240.0).to_numpy()
+            m_fuel = df.loc[group, "m_fuel"].fillna(96.0).to_numpy()
             imputed = K_CHAMBER * (m_ox + m_fuel)
             method = "Physics (Empirical Chamber Pressure)"
         else:
@@ -198,7 +198,7 @@ class PhysicsImputerService:
         self, df: pd.DataFrame, param: str, group: np.ndarray
     ) -> Tuple[np.ndarray, str, float]:
         """Long gaps (>5s): Ensemble of physics/PINN prediction + EKF state estimator."""
-        target_t = df.loc[group, "timestamp"].values
+        target_t = df.loc[group, "timestamp"].to_numpy()
         valid_before = df.loc[:group[0]-1, param].dropna()
         
         init_val = float(valid_before.iloc[-1]) if not valid_before.empty else PARAM_METADATA.get(param, {}).get("nominal", 1.0)
@@ -208,7 +208,7 @@ class PhysicsImputerService:
         init_velocity = 0.0
         if len(valid_before) >= 3:
             recent = valid_before.iloc[-3:]
-            recent_t = df.loc[recent.index, "timestamp"].values
+            recent_t = df.loc[recent.index, "timestamp"].to_numpy()
             if len(recent_t) >= 2 and (recent_t[-1] - recent_t[0]) > 0:
                 init_velocity = float((recent.iloc[-1] - recent.iloc[0]) / (recent_t[-1] - recent_t[0]))
         
@@ -232,13 +232,17 @@ class PhysicsImputerService:
         in the parameter's native units."""
         try:
             if param == "F_thrust" and "m_ox" in df.columns and "m_fuel" in df.columns:
-                m_ox = float(df.loc[idx, "m_ox"]) if pd.notna(df.loc[idx, "m_ox"]) else 240.0
-                m_fuel = float(df.loc[idx, "m_fuel"]) if pd.notna(df.loc[idx, "m_fuel"]) else 96.0
+                m_ox_val = df["m_ox"].iloc[idx]
+                m_fuel_val = df["m_fuel"].iloc[idx]
+                m_ox = float(m_ox_val) if pd.notna(m_ox_val) else 240.0
+                m_fuel = float(m_fuel_val) if pd.notna(m_fuel_val) else 96.0
                 expected_f = (m_ox + m_fuel) * ISP * G0 / 1000.0
                 return abs(val_imp - expected_f)
             elif param == "P_chamber" and "m_ox" in df.columns:
-                m_ox = float(df.loc[idx, "m_ox"]) if pd.notna(df.loc[idx, "m_ox"]) else 240.0
-                m_fuel = float(df.loc[idx, "m_fuel"]) if pd.notna(df.loc[idx, "m_fuel"]) else 96.0
+                m_ox_val = df["m_ox"].iloc[idx]
+                m_fuel_val = df["m_fuel"].iloc[idx] if "m_fuel" in df.columns else None
+                m_ox = float(m_ox_val) if pd.notna(m_ox_val) else 240.0
+                m_fuel = float(m_fuel_val) if (m_fuel_val is not None and pd.notna(m_fuel_val)) else 96.0
                 expected_p = K_CHAMBER * (m_ox + m_fuel)
                 return abs(val_imp - expected_p)
             else:
@@ -260,7 +264,7 @@ class PhysicsImputerService:
         """
         for param in ["P_chamber", "T_chamber", "m_ox", "m_fuel", "F_thrust", "N_pump", "P_tank_lox", "P_tank_fuel"]:
             if param in df.columns:
-                df[param] = np.maximum(0.0, df[param].values)
+                df[param] = np.maximum(0.0, df[param].to_numpy())
                 
         return df
 

@@ -85,12 +85,17 @@ export function App() {
           // ignore non-json frames
         }
       };
+      ws.onerror = () => {
+        // Silently handle WS connection fallback for HTTP polling
+      };
     } catch (e) {
-      console.warn('WebSocket connection failed:', e);
+      // Ignore WS setup errors
     }
 
     return () => {
-      if (ws) ws.close();
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        ws.close();
+      }
     };
   }, []);
 

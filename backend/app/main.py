@@ -31,11 +31,19 @@ try:
 except Exception as e:
     print(f"DB table creation / migration warning: {e}")
 
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app_instance: FastAPI):
+    auto_populate_synthetic_data_if_empty()
+    yield
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    lifespan=lifespan
 )
 
 # CORS Config - allow local frontend and Vercel deployments
@@ -65,7 +73,7 @@ app.include_router(alerts.router)
 app.include_router(dashboard.router)
 app.include_router(analysis.router)
 
-@app.on_event("startup")
+
 def auto_populate_synthetic_data_if_empty():
     """Auto-generates synthetic telemetry dataset, anomalies, and alerts on startup if DB is fresh."""
     try:

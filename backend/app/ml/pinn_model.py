@@ -1,26 +1,127 @@
-try:
-    import torch
-    import torch.nn as nn
-    from torch.utils.data import TensorDataset, DataLoader
-    HAS_TORCH = True
-except ImportError:
-    torch = None
-    class _DummyNNModule:
-        pass
-    class _DummyNN:
-        Module = _DummyNNModule
-    nn = _DummyNN()
-    TensorDataset = None
-    DataLoader = None
-    HAS_TORCH = False
-
-import numpy as np
-import pandas as pd
 import os
 import json
 import random
 import copy
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple, Optional, TYPE_CHECKING
+
+import numpy as np
+import pandas as pd
+
+if TYPE_CHECKING:
+    import torch
+    import torch.nn as nn
+    from torch.utils.data import TensorDataset, DataLoader
+    HAS_TORCH = True
+else:
+    try:
+        import torch
+        import torch.nn as nn
+        from torch.utils.data import TensorDataset, DataLoader
+        HAS_TORCH = True
+    except ImportError:
+        HAS_TORCH = False
+
+        class _DummyNNModule:
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                pass
+            def __call__(self, *args: Any, **kwargs: Any) -> Any:
+                return self
+            def forward(self, *args: Any, **kwargs: Any) -> Any:
+                return self
+            def parameters(self) -> List[Any]:
+                return []
+            def eval(self) -> None:
+                pass
+            def train(self) -> None:
+                pass
+            def state_dict(self) -> Dict[str, Any]:
+                return {}
+            def load_state_dict(self, state: Any) -> None:
+                pass
+            def to(self, device: Any) -> "_DummyNNModule":
+                return self
+            def cpu(self) -> "_DummyNNModule":
+                return self
+
+        class _DummyNN:
+            Module = _DummyNNModule
+            def __getattr__(self, name: str) -> Any:
+                return _DummyNNModule
+
+        class _DummyCUDA:
+            @staticmethod
+            def is_available() -> bool:
+                return False
+            @staticmethod
+            def manual_seed_all(seed: int) -> None:
+                pass
+
+        class _DummyOptimScheduler:
+            def step(self, *args: Any, **kwargs: Any) -> None:
+                pass
+
+        class _DummyOptim:
+            class Adam:
+                def __init__(self, *args: Any, **kwargs: Any) -> None:
+                    pass
+                def step(self) -> None:
+                    pass
+                def zero_grad(self) -> None:
+                    pass
+            class lr_scheduler:
+                ReduceLROnPlateau = _DummyOptimScheduler
+
+        class _DummyTorch:
+            float32 = "float32"
+            float64 = "float64"
+            long = "long"
+            cuda = _DummyCUDA()
+            optim = _DummyOptim()
+
+            @staticmethod
+            def manual_seed(seed: int) -> None:
+                pass
+
+            @staticmethod
+            def device(dev: str) -> str:
+                return dev
+
+            @staticmethod
+            def tensor(*args: Any, **kwargs: Any) -> Any:
+                return _DummyNNModule()
+
+            @staticmethod
+            def mean(*args: Any, **kwargs: Any) -> Any:
+                return _DummyNNModule()
+
+            @staticmethod
+            def sum(*args: Any, **kwargs: Any) -> Any:
+                return _DummyNNModule()
+
+            @staticmethod
+            def save(*args: Any, **kwargs: Any) -> None:
+                pass
+
+            @staticmethod
+            def load(*args: Any, **kwargs: Any) -> Any:
+                return {}
+
+            @staticmethod
+            def no_grad() -> Any:
+                class _NoGradContext:
+                    def __enter__(self) -> None:
+                        pass
+                    def __exit__(self, *args: Any) -> None:
+                        pass
+                return _NoGradContext()
+
+            def __getattr__(self, name: str) -> Any:
+                return _DummyNNModule()
+
+        torch = _DummyTorch()  # type: ignore
+        nn = _DummyNN()  # type: ignore
+        TensorDataset = _DummyNNModule  # type: ignore
+        DataLoader = _DummyNNModule  # type: ignore
 
 from app.services.synthetic_data import (
     ISP, G0, K_CHAMBER, THRUST_TOLERANCE_KN, PRESSURE_TOLERANCE_MPA
@@ -293,7 +394,7 @@ def train_pinn_v3(epochs: int = 500, lr: float = 3e-3, batch_size: int = 128,
     stds_dict = {}
     
     for col in ALL_TELEMETRY_COLS:
-        col_vals = df_tel[col].iloc[train_slice].dropna().values
+        col_vals = df_tel[col].iloc[train_slice].dropna().to_numpy()
         m = float(np.mean(col_vals)) if len(col_vals) > 0 else NOMINAL_VALUES.get(col, 1.0)
         s = float(np.std(col_vals)) if len(col_vals) > 0 else 1.0
         if s == 0.0:
@@ -331,11 +432,11 @@ def train_pinn_v3(epochs: int = 500, lr: float = 3e-3, batch_size: int = 128,
     df_exp = df_phys[exp_mask].reset_index(drop=True)
     n_exp = len(df_exp)
     
-    exp_p_chamber = df_exp["P_chamber"].values
-    exp_m_ox = df_exp["m_ox"].values
-    exp_m_fuel = df_exp["m_fuel"].values
-    exp_total_flow = df_exp["total_mass_flow_kg_s"].values
-    exp_of_ratio = df_exp["OF_ratio"].values
+    exp_p_chamber = df_exp["P_chamber"].to_numpy()
+    exp_m_ox = df_exp["m_ox"].to_numpy()
+    exp_m_fuel = df_exp["m_fuel"].to_numpy()
+    exp_total_flow = df_exp["total_mass_flow_kg_s"].to_numpy()
+    exp_of_ratio = df_exp["OF_ratio"].to_numpy()
     
     # Build experimental input batches for measured targets P_chamber (0), m_ox (2), m_fuel (3)
     exp_inputs_list = []
@@ -396,6 +497,9 @@ def train_pinn_v3(epochs: int = 500, lr: float = 3e-3, batch_size: int = 128,
     # Arrays for unscaling inside PyTorch
     target_means_t = torch.tensor([means_dict[c] for c in TARGET_COLS], dtype=torch.float32).to(device)
     target_stds_t = torch.tensor([stds_dict[c] for c in TARGET_COLS], dtype=torch.float32).to(device)
+    
+    exp_data_loss = torch.tensor(0.0)
+    exp_physics_loss = torch.tensor(0.0)
     
     model.train()
     for epoch in range(epochs):
@@ -543,7 +647,7 @@ def train_pinn_v3(epochs: int = 500, lr: float = 3e-3, batch_size: int = 128,
         ctx_mat = np.zeros((n_sub, len(ALL_TELEMETRY_COLS)), dtype=np.float32)
         for c_idx, c_name in enumerate(ALL_TELEMETRY_COLS):
             if c_name in df_sub.columns:
-                s_vals = df_sub[c_name].values
+                s_vals = df_sub[c_name].to_numpy()
                 ctx_mat[:, c_idx] = np.nan_to_num((s_vals - means_dict[c_name]) / stds_dict[c_name], nan=0.0)
                 
         ctx_mat[:, target_col_idx] = 0.0  # mask target
@@ -571,7 +675,7 @@ def train_pinn_v3(epochs: int = 500, lr: float = 3e-3, batch_size: int = 128,
         
         for param in TARGET_COLS:
             pred_phys = predict_target_for_df(df_test_raw, param, t_norm_test, phases_test)
-            actual_phys = df_test_raw[param].values
+            actual_phys = df_test_raw[param].to_numpy()
             test_preds_dict[param] = pred_phys
             
             # Direct genuine MAE and RMSE calculation (NO arbitrary multipliers)
@@ -585,7 +689,7 @@ def train_pinn_v3(epochs: int = 500, lr: float = 3e-3, batch_size: int = 128,
         np.random.seed(42)
         test_rand_mask = (np.random.rand(n_test, 5) < 0.10).astype(np.float32)
         
-        y_test_masked = df_test_raw[TARGET_COLS].values.copy()
+        y_test_masked = df_test_raw[TARGET_COLS].to_numpy().copy()
         y_test_masked[test_rand_mask == 1] = np.nan
         df_test_masked = df_test_raw.copy()
         for i, p in enumerate(TARGET_COLS):
@@ -597,19 +701,19 @@ def train_pinn_v3(epochs: int = 500, lr: float = 3e-3, batch_size: int = 128,
         ekf_errs = []
         
         for idx, param in enumerate(TARGET_COLS):
-            actual = df_test_raw[param].values
+            actual = df_test_raw[param].to_numpy()
             pinn_p = predict_target_for_df(df_test_masked, param, t_norm_test, phases_test)
             
             s = pd.Series(y_test_masked[:, idx])
-            spline_p = s.interpolate(method='linear').bfill().ffill().values
+            spline_p = s.interpolate(method='linear').bfill().ffill().to_numpy()
             
             if param == "F_thrust":
-                m_ox = df_test_raw["m_ox"].values
-                m_fuel = df_test_raw["m_fuel"].values
+                m_ox = df_test_raw["m_ox"].to_numpy()
+                m_fuel = df_test_raw["m_fuel"].to_numpy()
                 phys_p = (m_ox + m_fuel) * ISP * G0 / 1000.0
             elif param == "P_chamber":
-                m_ox = df_test_raw["m_ox"].values
-                m_fuel = df_test_raw["m_fuel"].values
+                m_ox = df_test_raw["m_ox"].to_numpy()
+                m_fuel = df_test_raw["m_fuel"].to_numpy()
                 phys_p = K_CHAMBER * (m_ox + m_fuel)
             else:
                 phys_p = spline_p
@@ -648,7 +752,7 @@ def train_pinn_v3(epochs: int = 500, lr: float = 3e-3, batch_size: int = 128,
             p_mask = (np.random.rand(n_test, 5) < (pct / 100.0)).astype(np.float32)
             df_p = df_test_raw.copy()
             for i, p in enumerate(TARGET_COLS):
-                s_vals = df_p[p].values.copy()
+                s_vals = df_p[p].to_numpy().copy()
                 s_vals[p_mask[:, i] == 1] = np.nan
                 df_p[p] = s_vals
                 
@@ -658,19 +762,19 @@ def train_pinn_v3(epochs: int = 500, lr: float = 3e-3, batch_size: int = 128,
             ekf_errs_pct = []
             
             for i, p in enumerate(TARGET_COLS):
-                actual_vals = df_test_raw[p].values
+                actual_vals = df_test_raw[p].to_numpy()
                 pred_pinn = predict_target_for_df(df_p, p, t_norm_test, phases_test)
                 
-                s = pd.Series(df_p[p].values)
-                pred_spline = s.interpolate(method='linear').bfill().ffill().values
+                s = pd.Series(df_p[p].to_numpy())
+                pred_spline = s.interpolate(method='linear').bfill().ffill().to_numpy()
                 
                 if p == "F_thrust":
-                    m_ox = df_test_raw["m_ox"].values
-                    m_fuel = df_test_raw["m_fuel"].values
+                    m_ox = df_test_raw["m_ox"].to_numpy()
+                    m_fuel = df_test_raw["m_fuel"].to_numpy()
                     pred_phys = (m_ox + m_fuel) * ISP * G0 / 1000.0
                 elif p == "P_chamber":
-                    m_ox = df_test_raw["m_ox"].values
-                    m_fuel = df_test_raw["m_fuel"].values
+                    m_ox = df_test_raw["m_ox"].to_numpy()
+                    m_fuel = df_test_raw["m_fuel"].to_numpy()
                     pred_phys = K_CHAMBER * (m_ox + m_fuel)
                 else:
                     pred_phys = pred_spline
@@ -710,12 +814,12 @@ def train_pinn_v3(epochs: int = 500, lr: float = 3e-3, batch_size: int = 128,
             gap_start = min(50, n_test - gap_len - 5)
             
             df_gap = df_test_raw.copy()
-            f_vals = df_gap["F_thrust"].values.copy()
+            f_vals = df_gap["F_thrust"].to_numpy().copy()
             f_vals[gap_start:gap_start+gap_len] = np.nan
             df_gap["F_thrust"] = f_vals
             
             pred_gap_f = predict_target_for_df(df_gap, "F_thrust", t_norm_test, phases_test)
-            actual_f = df_test_raw["F_thrust"].values[gap_start:gap_start+gap_len]
+            actual_f = df_test_raw["F_thrust"].to_numpy()[gap_start:gap_start+gap_len]
             pred_f = pred_gap_f[gap_start:gap_start+gap_len]
             
             g_mae = float(np.mean(np.abs(pred_f - actual_f)))
@@ -789,7 +893,7 @@ def train_pinn_v3(epochs: int = 500, lr: float = 3e-3, batch_size: int = 128,
         "architecture": "TelemetryPINNv3 (43 target-aware inputs x 4 hidden layers x 128 neurons, Tanh activations, Linear output)",
         "input_variables": ["t_norm", "phase_code", "target_id_onehot (5)", "telemetry_context (18)", "mask_indicators (18)"],
         "output_variables": TARGET_COLS,
-        "parameters_count": int(sum(p.numel() for p in model.parameters())),
+        "parameters_count": sum(p.numel() for p in model.parameters()) if HAS_TORCH and model else 0,
         "optimizer": "Adam",
         "learning_rate": lr,
         "epochs": epochs,
@@ -810,7 +914,7 @@ def train_pinn_v3(epochs: int = 500, lr: float = 3e-3, batch_size: int = 128,
             "target_fabrication": "NONE (T_chamber and F_thrust were NOT fabricated)"
         },
         "training_history": {
-            "initial_total_loss": round(initial_loss, 6),
+            "initial_total_loss": round(initial_loss if initial_loss is not None else 0.0, 6),
             "final_data_loss": round(history["data_loss"][-1], 6),
             "final_exp_data_loss": round(history["exp_data_loss"][-1], 6),
             "final_exp_physics_loss": round(history["exp_physics_loss"][-1], 6),
@@ -850,7 +954,7 @@ def train_pinn(epochs: int = 500, lr: float = 3e-3, **kwargs):
 class PINNPredictor:
     """High-level wrapper for PINN v3 model inference."""
     def __init__(self):
-        self.model = TelemetryPINNv3(input_dim=43, output_dim=1) if HAS_TORCH else None
+        self.model: Optional[nn.Module] = TelemetryPINNv3(input_dim=43, output_dim=1) if HAS_TORCH else None
         self.is_trained = False
         self.metadata = {}
         self.means_dict = NOMINAL_VALUES.copy()
@@ -932,7 +1036,7 @@ class PINNPredictor:
             for param in TARGET_COLS:
                 if target_param is not None and param != target_param:
                     if telemetry_df is not None and param in telemetry_df.columns:
-                        preds_dict[param] = telemetry_df[param].values
+                        preds_dict[param] = telemetry_df[param].to_numpy()
                     else:
                         preds_dict[param] = np.full(n, NOMINAL_VALUES.get(param, 1.0))
                 else:
@@ -950,7 +1054,7 @@ class PINNPredictor:
                 if target_param is not None and param != target_param:
                     # Parameter is observed context
                     if telemetry_df is not None and param in telemetry_df.columns:
-                        preds_dict[param] = telemetry_df[param].values
+                        preds_dict[param] = telemetry_df[param].to_numpy()
                     else:
                         preds_dict[param] = np.full(n, NOMINAL_VALUES.get(param, 1.0))
                     continue
@@ -964,7 +1068,7 @@ class PINNPredictor:
                 ctx_mat = np.zeros((n, len(ALL_TELEMETRY_COLS)), dtype=np.float32)
                 for c_idx, c_name in enumerate(ALL_TELEMETRY_COLS):
                     if telemetry_df is not None and c_name in telemetry_df.columns:
-                        s_vals = telemetry_df[c_name].values
+                        s_vals = telemetry_df[c_name].to_numpy()
                         if len(s_vals) == n:
                             ctx_mat[:, c_idx] = np.nan_to_num((s_vals - self.means_dict.get(c_name, 0.0)) / self.stds_dict.get(c_name, 1.0), nan=0.0)
                         else:
@@ -984,7 +1088,8 @@ class PINNPredictor:
                 )
                 
                 with torch.no_grad():
-                    preds_z = self.model(inp).numpy()[:, 0]
+                    raw_z = self.model(inp)
+                    preds_z = (raw_z.cpu().numpy() if hasattr(raw_z, "cpu") else np.asarray(raw_z))[:, 0]
                     
                 # Unscale using Z-score parameters
                 preds_phys = preds_z * self.stds_dict.get(param, 1.0) + self.means_dict.get(param, 0.0)
@@ -1004,7 +1109,7 @@ class PINNPredictor:
                 if target_param is not None and param == target_param:
                     mask_matrix_5[:, idx] = 1.0
                 elif telemetry_df is not None and param in telemetry_df.columns:
-                    series = telemetry_df[param].values
+                    series = telemetry_df[param].to_numpy()
                     if len(series) == n:
                         nan_mask = np.isnan(series)
                         mask_matrix_5[nan_mask, idx] = 1.0

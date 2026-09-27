@@ -6,12 +6,16 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 export const api = {
   // Telemetry
   getTelemetryData: async (startTime?: number, endTime?: number, parameters?: string[]): Promise<TelemetryDataPoint[]> => {
-    const params: any = {};
-    if (startTime !== undefined) params.start_time = startTime;
-    if (endTime !== undefined) params.end_time = endTime;
-    if (parameters) params.parameters = parameters.join(',');
-    const res = await axios.get(`${API_BASE}/telemetry/data`, { params });
-    return res.data;
+    try {
+      const params: any = {};
+      if (startTime !== undefined) params.start_time = startTime;
+      if (endTime !== undefined) params.end_time = endTime;
+      if (parameters) params.parameters = parameters.join(',');
+      const res = await axios.get(`${API_BASE}/telemetry/data`, { params });
+      return Array.isArray(res.data) ? res.data : (res.data?.telemetry || []);
+    } catch {
+      return [];
+    }
   },
 
   getParameterMetadata: async () => {
@@ -43,8 +47,12 @@ export const api = {
   },
 
   getAnomalies: async (): Promise<AnomalyItem[]> => {
-    const res = await axios.get(`${API_BASE}/anomaly/results`);
-    return res.data;
+    try {
+      const res = await axios.get(`${API_BASE}/anomaly/results`);
+      return Array.isArray(res.data) ? res.data : (res.data?.anomalies || []);
+    } catch {
+      return [];
+    }
   },
 
   // Imputation
@@ -54,14 +62,22 @@ export const api = {
   },
 
   getImputations: async (): Promise<ImputationItem[]> => {
-    const res = await axios.get(`${API_BASE}/imputation/results`);
-    return res.data;
+    try {
+      const res = await axios.get(`${API_BASE}/imputation/results`);
+      return Array.isArray(res.data) ? res.data : (res.data?.imputations || []);
+    } catch {
+      return [];
+    }
   },
 
   // Alerts & Dashboard
   getAlerts: async (): Promise<AlertItem[]> => {
-    const res = await axios.get(`${API_BASE}/alerts`);
-    return res.data;
+    try {
+      const res = await axios.get(`${API_BASE}/alerts`);
+      return Array.isArray(res.data) ? res.data : (res.data?.alerts || []);
+    } catch {
+      return [];
+    }
   },
 
   acknowledgeAlert: async (alertId: number) => {

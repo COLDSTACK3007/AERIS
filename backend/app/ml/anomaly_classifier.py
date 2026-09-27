@@ -1,36 +1,53 @@
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, TYPE_CHECKING
 try:
     from sklearn.ensemble import IsolationForest
     HAS_SKLEARN = True
 except ImportError:
     IsolationForest = None
     HAS_SKLEARN = False
-try:
+
+if TYPE_CHECKING:
     import torch
     import torch.nn as nn
     HAS_TORCH = True
-except ImportError:
-    torch = None
-    nn = None
-    HAS_TORCH = False
+else:
+    try:
+        import torch
+        import torch.nn as nn
+        HAS_TORCH = True
+    except ImportError:
+        torch = None
+        class _DummyModule:
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                pass
+            def __call__(self, *args: Any, **kwargs: Any) -> Any:
+                return self
+        class _DummyNN:
+            Module = _DummyModule
+            def __getattr__(self, name: str) -> Any:
+                return _DummyModule
+        nn = _DummyNN()  # type: ignore
+        HAS_TORCH = False
 
-if HAS_TORCH:
-    class LSTMAutoencoder(nn.Module):
-        """LSTM Autoencoder for sequence-based anomaly detection."""
-        def __init__(self, input_dim: int = 1, hidden_dim: int = 32):
-            super(LSTMAutoencoder, self).__init__()
+class LSTMAutoencoder(nn.Module):
+    """LSTM Autoencoder for sequence-based anomaly detection."""
+    def __init__(self, input_dim: int = 1, hidden_dim: int = 32):
+        super().__init__()
+        if HAS_TORCH:
             self.encoder = nn.LSTM(input_dim, hidden_dim, batch_first=True)
             self.decoder = nn.LSTM(hidden_dim, input_dim, batch_first=True)
+        else:
+            self.encoder = None
+            self.decoder = None
 
-        def forward(self, x):
+    def forward(self, x: Any) -> Any:
+        if HAS_TORCH and self.encoder is not None and self.decoder is not None:
             encoded, (hn, cn) = self.encoder(x)
             decoded, _ = self.decoder(encoded)
             return decoded
-else:
-    class LSTMAutoencoder:
-        pass
+        return x
 
 class MLAnomalyDetector:
     def __init__(self, contamination: float = 0.01):
@@ -42,7 +59,7 @@ class MLAnomalyDetector:
             return np.zeros(len(df), dtype=bool)
 
         valid_idx = df[parameter].dropna().index
-        vals = df.loc[valid_idx, parameter].values.reshape(-1, 1)
+        vals = np.asarray(df.loc[valid_idx, parameter].to_numpy()).reshape(-1, 1)
         if len(vals) < 20:
             return np.zeros(len(df), dtype=bool)
         
